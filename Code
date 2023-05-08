@@ -23,7 +23,7 @@ url = df_Germany['url'].to_list()
 data=[]
 
 #Variables for API (key,date_from,size_of_pages):
-headers = {"x-key": "09e7d5800e4374a770b749cfa905213a"}
+headers = {"x-key": "******"}
 today = dt.datetime.now()
 days= dt.timedelta(days = 50)
 fromdate = today - days

@@ -1,0 +1,81 @@
+# Libraries needed
+import pandas as pd
+import requests
+import numpy as np
+import ipywidgets as widgets
+import datetime as dt
+import plotly.express as px
+from ipywidgets import Layout,Dropdown
+from datetime import datetime
+from pandas import json_normalize
+
+# pull data using requests, normalize json 
+r = requests.get('https://agsi.gie.eu/api/about?show=table')    
+df = json_normalize(r.json())
+
+# keep only rows where country column equals Germany
+df_Germany= df[df['country'] == 'DE']
+
+# Turn the url column into a list to loop through it
+url = df_Germany['url'].to_list()
+
+#Create a list to append data for each itteration of the loop
+data=[]
+
+#Variables for API (key,date_from,size_of_pages):
+headers = {"x-key": "******"}
+today = dt.datetime.now()
+days= dt.timedelta(days = 50)
+fromdate = today - days
+size= 300
+
+#Create for loop that requests the url and extracts the data from the JSON
+# In the loop add a for loop to go through each page available in the response
+for x in url:
+    r = requests.get(x,params={"from": fromdate,"size":size}, headers=headers).json()
+    for page in range(0,r["last_page"]):
+        api = requests.get(x,params={"from": fromdate,"size": size,"page":{page}}, headers=headers)
+        df = json_normalize(api.json())
+        j=df["data"]
+        jd=j.explode('data')
+        jd_final=pd.DataFrame(jd.apply(pd.Series))
+        data.append(jd_final)
+
+#Concatenate the data into one dataframe and print head to check
+storage_Germany= pd.concat(data)
+#print(storage_Germany.head())
+
+# Replace empty rows with NA and removes all NA's 
+Storage=storage_Germany
+#print(Storage)
+Storage['name'].replace('', np.nan, inplace=True)
+Storage.dropna(subset=['name'], inplace=True)
+
+# Create function getting unique name values
+ALL = 'ALL'
+def unique_names_ALL(array):
+    unique = array.unique().tolist()
+    unique.sort()
+    unique.insert(0, ALL)
+    return unique
+
+# Create dropdown using list
+dropdown_name = widgets.Dropdown(options =    unique_names_ALL(Storage.name))
+
+#Create a defintion to graph the storage chooses in dropdown
+def dropdown_event(change):
+    output_name.clear_output() #this clears the previous graph
+    with output_name:
+        df= Storage[Storage.name == change.new] #this allows to create dynamic chart
+        x = df['gasDayStart']
+        y = df['gasInStorage']
+        fig = px.line( x = x ,
+               y = y,
+               title = change.new)#automtically changes
+        display(fig.show())
+
+dropdown_name.observe(dropdown_event, names='value')
+output_name = widgets.Output()
+
+display(dropdown_name)
+display(output_name)
